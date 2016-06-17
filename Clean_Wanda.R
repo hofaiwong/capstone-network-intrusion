@@ -2,13 +2,11 @@
 #logistic
 #Ridge
 #K-means clustering
-setwd("/Users/wandawang/Desktop/NSL_KDD-master")
+#setwd("/Users/wandawang/Desktop/NSL_KDD-master")
+library(nnet)
 FieldNames <-read.csv("Field Names.csv", header = FALSE,
                       stringsAsFactors = FALSE)
 column.names <- FieldNames[,1] #41 columns 
-colnames(KDD.test) <- column.names # rename columns
-colnames(KDD.train)<- column.names
-#KDD.train$outcome <- as.factor(KDD.train$outcome)
 
 KDD.test <-read.csv("KDDTest+.csv", header = FALSE,
                     stringsAsFactors = FALSE)
@@ -16,6 +14,12 @@ KDD.test <-read.csv("KDDTest+.csv", header = FALSE,
 KDD.train <-read.csv("KDDTrain+.csv", header = FALSE,
                      stringsAsFactors = FALSE)
 
+colnames(KDD.test) <- column.names # rename columns
+colnames(KDD.train)<- column.names
+#KDD.train$outcome <- as.factor(KDD.train$outcome)
+
+names(KDD.train)[42] <- "outcome"
+KDD.train$outcome <- as.factor(KDD.train$outcome)
 KDD.train$outcome.response <- ifelse(KDD.train$outcome == 'normal',0,1)
 
 View(KDD.train) #44 cols  0.465% are malicious 
