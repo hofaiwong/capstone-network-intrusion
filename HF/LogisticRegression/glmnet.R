@@ -51,9 +51,9 @@ logit.test.class = predict(logit.cv,
                            s = lambda, 
                            type = 'class',
                            newx = x[-train, ])
-t = table(truth = y[-train], prediction = logit.test.class)
-t
-sum(diag(t))/sum(t) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
+logit.contingency = table(truth = y[-train], prediction = logit.test.class)
+logit.contingency
+sum(diag(logit.contingency))/sum(logit.contingency) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 
 
 #Coefficients: 
