@@ -1,41 +1,67 @@
-#EDA
-#logistic
-#Ridge
-#K-means clustering
-#setwd("/Users/wandawang/Desktop/NSL_KDD-master")
+#################################################
+####       Network Intrusion Detection       ####
+####           Data Load and Prep            ####
+#################################################
+
 library(nnet)
+
+#Load csv files
 FieldNames <-read.csv("./data/Field Names.csv", header = FALSE,
                       stringsAsFactors = FALSE)
 column.names <- FieldNames[,1] #41 columns 
 
-KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
-                    stringsAsFactors = FALSE)
-
 KDD.train <-read.csv("./data/KDDTrain+.csv", header = FALSE,
                      stringsAsFactors = FALSE)
 
-colnames(KDD.test) <- column.names # rename columns
-colnames(KDD.train)<- column.names
-#KDD.train$outcome <- as.factor(KDD.train$outcome)
+KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
+                    stringsAsFactors = FALSE)
 
-names(KDD.train)[42] <- "outcome"
-KDD.train$outcome <- as.factor(KDD.train$outcome)
-KDD.train$outcome.response <- ifelse(KDD.train$outcome == 'normal',0,1)
+#Function to prep, munge and dummify train and test data
+prep = function(df) {
+  colnames(df) <- column.names #Rename columns
+  names(df)[42] <- "outcome"
+  df$outcome <- as.factor(df$outcome)
+  df$outcome.response <- ifelse(df$outcome == 'normal',0,1)
+  
+  #Dealing with 3 Categorical Variables, 0/1, expanding ncols, replace into new.KDD.*
+  service_<-as.data.frame(class.ind(df$service))
+  protocol_type_<-as.data.frame(class.ind(df$protocol_type))
+  flag_<-as.data.frame(class.ind(df$flag))
+  new <- cbind(service_, protocol_type_, flag_)
+  cat('Dummy features:',dim(new)[2],'\n')
+  new.df = cbind(duration=df$duration, new, df[,5:41], outcome.response=df[,44])
+  cat('New dim:',dim(new.df))
+  return(new.df)
+}
 
-View(KDD.train) #44 cols  0.465% are malicious 
-View(KDD.test)
-#Dealing with 3 Categorical Variables, 0/1, expanding ncols, replace into new.KDD.train
-service_<-as.data.frame(class.ind(KDD.train$service))
-protocol_type_<-as.data.frame(class.ind(KDD.train$protocol_type))
-flag_<-as.data.frame(class.ind(KDD.train$flag))
-new <- cbind(service_, protocol_type_, flag_) #84
-new.KDD.train <-cbind(duration=KDD.train$duration, new, KDD.train[,5:41], outcome.response=KDD.train[,44])
-dim(new.KDD.train) #[1] 125973    123
-View(new.KDD.train)
+#Run function on train
+new.KDD.train = prep(KDD.train) #84 dummy features, new dim: 125973 123
+mean(new.KDD.train$outcome.response==1) #46.5% malicious connections
 
-#K-means cluster analysis
+#Run function on test
+new.KDD.test = prep(KDD.test) #77 dummy features, new dim: 22543 116
+mean(new.KDD.test$outcome.response==1) #56.9% malicious connections
 
-#logistic - youtuber took the col 2 to 4 out. I could try that? 
-#amy- logistic, ridge
-amy <-glm(formula = outcome.respond ~ ., family = "binomial", data = new) # categorial variables split 0,1 against y outcome.respond
-summary(amy)
+#Comparing columns in test and train
+a = sapply(colnames(new.KDD.test), function(i) ifelse(i %in% colnames(new.KDD.train), TRUE, FALSE))
+which(a==FALSE)
+b = sapply(colnames(new.KDD.train), function(i) ifelse(i %in% colnames(new.KDD.test), TRUE, FALSE))
+which(b==FALSE)
+
+#Remove columns with only one value: num_outbound_cmds in train and test
+for (i in 1:dim(new.KDD.test)[2]) {
+  if (length(unique(new.KDD.test[,i])) < 2) {
+    cat(names(new.KDD.test)[i],'\n')
+  }
+}
+new.KDD.train = subset(new.KDD.train, select=-c(num_outbound_cmds))
+new.KDD.test = subset(new.KDD.test, select=-c(num_outbound_cmds))
+
+#Add missing levels in test, set to 0, and reorder to match train
+for (i in names(b[b==FALSE])) {
+  new.KDD.test[,i] = 0
+}
+new.KDD.test = new.KDD.test[colnames(new.KDD.train)]
+
+#Check if columns match between train and test
+names(new.KDD.test)==names(new.KDD.train)
