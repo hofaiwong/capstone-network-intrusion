@@ -12,13 +12,14 @@ column.names <- FieldNames[,1] #41 columns
 
 KDD.train <-read.csv("./data/KDDTrain+.csv", header = FALSE,
                      stringsAsFactors = FALSE)
+colnames(KDD.train) <- column.names #Rename columns
 
 KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
                     stringsAsFactors = FALSE)
+colnames(KDD.test) <- column.names #Rename columns
 
 #Function to prep, munge and dummify train and test data
 prep = function(df) {
-  colnames(df) <- column.names #Rename columns
   names(df)[42] <- "outcome"
   df$outcome <- as.factor(df$outcome)
   df$outcome.response <- ifelse(df$outcome == 'normal',0,1)
@@ -65,3 +66,5 @@ new.KDD.test = new.KDD.test[colnames(new.KDD.train)]
 
 #Check if columns match between train and test
 names(new.KDD.test)==names(new.KDD.train)
+
+rm(a, b, i)

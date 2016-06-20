@@ -15,9 +15,10 @@ accuracy = function(target, pred) {
 }
 
 #Creating the data matrices for the glmnet() function.
-x = model.matrix(outcome.response ~ ., subset(new.KDD.train, select=-c(num_outbound_cmds)))[, -1]
+x = model.matrix(outcome.response ~ ., new.KDD.train)[, -1]
 y = new.KDD.train$outcome.response
-
+x.test = model.matrix(outcome.response ~ ., new.KDD.test)[, -1]
+y.test = new.KDD.test$outcome.response
 
 #Creating training and test sets
 set.seed(0)
@@ -60,12 +61,14 @@ logit.test.class = predict(logit.cv,
                            newx = x[-train, ])
 accuracy(y[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 
+
 #Checking accuracy of model - test data
 logit.test.class.final = predict(logit.cv, 
                                  s = lambda, 
                                  type = 'class',
-                                 newx = new.KDD.test[,-123])
-accuracy(new.KDD.test[,123], logit.test.class.final) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
+                                 newx = x.test)
+accuracy(y.test, logit.test.class.final) #76% accuracy with lambda=exp(-3)
+
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
