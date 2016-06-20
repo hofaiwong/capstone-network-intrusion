@@ -25,7 +25,7 @@ cv.svc.linear = tune(svm,
                      outcome.response ~ .,
                      data = train,
                      kernel = "linear",
-                     ranges = list(cost = 10^(seq(-5, -.5, length = 50))))
+                     ranges = list(cost = 10^(seq(-2, -.2, length = 10))))
 cv.svc.linear
 
 plot(cv.svc.linear$performances$cost,

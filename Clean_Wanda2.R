@@ -6,14 +6,14 @@
 library(nnet)
 
 #Load csv files
-FieldNames <-read.csv("Field Names.csv", header = FALSE,
+FieldNames <-read.csv("./data/Field Names.csv", header = FALSE,
                       stringsAsFactors = FALSE)
 column.names <- FieldNames[,1] #41 columns 
 
-KDD.train <-read.csv("KDDTrain+.csv", header = FALSE,
+KDD.train <-read.csv("./data/KDDTrain+.csv", header = FALSE,
                      stringsAsFactors = FALSE)
 
-KDD.test <-read.csv("KDDTest+.csv", header = FALSE,
+KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
                     stringsAsFactors = FALSE)
 
 #Function to prep, munge and dummify train and test data
@@ -44,4 +44,13 @@ new.KDD.test = prep(KDD.test) #77 dummy features, new dim: 22543 116
 mean(new.KDD.test$outcome.response==1) #56.9% malicious connections
 View(new.KDD.test)
 
+#Comparing columns in test and train
+a = sapply(colnames(new.KDD.test), function(i) ifelse(i %in% colnames(new.KDD.train), TRUE, FALSE))
+which(a==FALSE)
+b = sapply(colnames(new.KDD.train), function(i) ifelse(i %in% colnames(new.KDD.test), TRUE, FALSE))
+which(b==FALSE)
 
+#Add missing levels in test, set to 0
+for (i in names(b[b==FALSE])) {
+  new.KDD.test[,i] = 0
+}

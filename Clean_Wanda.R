@@ -4,14 +4,14 @@
 #K-means clustering
 #setwd("/Users/wandawang/Desktop/NSL_KDD-master")
 library(nnet)
-FieldNames <-read.csv("Field Names.csv", header = FALSE,
+FieldNames <-read.csv("./data/Field Names.csv", header = FALSE,
                       stringsAsFactors = FALSE)
 column.names <- FieldNames[,1] #41 columns 
 
-KDD.test <-read.csv("KDDTest+.csv", header = FALSE,
+KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
                     stringsAsFactors = FALSE)
 
-KDD.train <-read.csv("KDDTrain+.csv", header = FALSE,
+KDD.train <-read.csv("./data/KDDTrain+.csv", header = FALSE,
                      stringsAsFactors = FALSE)
 
 colnames(KDD.test) <- column.names # rename columns
