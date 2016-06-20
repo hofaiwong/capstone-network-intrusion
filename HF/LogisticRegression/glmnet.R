@@ -74,63 +74,71 @@ accuracy(y.test, logit.test.class.final) #76% accuracy with lambda=exp(-3)
 logit.coef = predict(logit.cv, 
                      s = lambda, 
                      type = 'coefficients')
-sum(logit.coef!=0)-1 #Kept only 12 features with lambda=exp(-3); 110 with lambda.min
-logit.coef #log odds scale?
+sum(logit.coef!=0)-1 #Keep 110 features with lambda.min, 12 with lambda=exp(-3)
+logit.coef
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
                         type = 'nonzero')
 colnames(x)[logit.nonzero[,1]]
 
-#####################
-#### Lambda Plot ####
-#####################
+##########################
+#### Accuracy Summary ####
+##########################
 
 #Plot lambda vs coefficients vs accuracy
-res = data.frame(matrix(ncol = 3, nrow = length(grid)))
-colnames(res) = c('lambda','accuracy','coef')
-for (i in 1:length(grid)) {
-  #Insert lambda
-  res[i,1] = grid[i]
-  
-  #Insert accuracy %
-  pred.class = predict(logit.cv, s = grid[i], type = 'class', newx = x[-train, ])
-  t = table(truth = y[-train], prediction = pred.class)
-  res[i,2] = sum(diag(t))/sum(t)
-  
-  #Insert coef count
-  pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
-  res[i,3] = sum(pred.coef!=0)-1
+summary.plot = function(x,y) {
+  res = data.frame(matrix(ncol = 3, nrow = length(grid)))
+  colnames(res) = c('lambda','accuracy','coef')
+  for (i in 1:length(grid)) {
+    #Insert lambda
+    res[i,1] = grid[i]
+    
+    #Insert accuracy %
+    pred.class = predict(logit.cv, s = grid[i], type = 'class', newx = x)
+    t = table(truth = y, prediction = pred.class)
+    res[i,2] = sum(diag(t))/sum(t)
+    
+    #Insert coef count
+    pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
+    res[i,3] = sum(pred.coef!=0)-1
+  }
+  plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
+       xlab="Count of features", ylab="Accuracy", pch=16)
+  return(res)
 }
-plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
-     xlab="Count of features", ylab="Accuracy", pch=16)
-rm(i,t)
+summary.plot(x[-train,], y[-train])
+summary.plot(x.test, y.test)
 
 #####################
 #### Diagnostics ####
 #####################
 
 #formula = as.formula(paste("outcome.response ~", paste(colnames(x)[logit.nonzero[,1]], collapse = " + ")))
-temp = colnames(x)[logit.nonzero[,1]]
-temp = temp[-6] #remove "wrong_fragment" which had high p-value
-formula = as.formula(paste("outcome.response ~", paste(temp, collapse = " + ")))
-
+model.var = colnames(x)[logit.nonzero[,1]]
+formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
 logit.glm = glm(formula, 
                 family = "binomial", 
                 data = new.KDD.train)
+summary(logit.glm) #"wrong_fragment" is not significant
+
+model.var = model.var[-6] #remove "wrong_fragment" which had high p-value
+formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
+logit.glm = glm(formula, 
+                family = "binomial", 
+                data = new.KDD.train)
+summary(logit.glm) #all coefficients are significant
 
 #Goodness of fit test i.e. Test of deviance
-# H0: The logistic regression model is appropriate.
-# H1: The logistic regression model is not appropriate.
 pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate
 
 #McFadden's pseudo R^2 based on the deviance
-1 - logit.glm$deviance/logit.glm$null.deviance #~84%
+1 - logit.glm$deviance/logit.glm$null.deviance #~84% variance explained
+
+#Variance Inflation Factor
+vif(logit.glm) #all < 5, can consider no multicollinearity to deal with
 
 #Checking the model summary and assumptions
-summary(logit.glm)
 plot(logit.glm)
-library(car)
 influencePlot(logit.glm)
-vif(logit.glm)
 avPlots(logit.glm)
 confint(logit.glm)
