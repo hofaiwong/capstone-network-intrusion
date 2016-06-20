@@ -5,6 +5,13 @@
 
 library(e1071)
 
+#Define accuracy function
+accuracy = function(target, pred) {
+  contingency = table(truth = target, prediction = pred)
+  cat(sum(diag(contingency))/sum(contingency),'\n')
+  return(contingency)
+}
+
 #Scaling
 #new.KDD.train.scale = as.data.frame(scale(new.KDD.train[, -123]))
 
@@ -43,9 +50,7 @@ summary(cv.svc.linear$best.model) #X support vectors.
 
 #Best model accuracy
 best.svc.linear.pred = predict(cv.svc.linear$best.model, test)
-best.svc.linear.contingency = table(truth = test$outcome.response, prediction = best.svc.linear.pred)
-best.svc.linear.contingency
-sum(diag(best.svc.linear.contingency))/sum(best.svc.linear.contingency) #X% accuracy
+accuracy(test$outcome.response, best.svc.linear.pred) #X% accuracy
 
 #Constructing the final model.
 final.svc.linear = svm(outcome.response ~ .,
@@ -55,8 +60,7 @@ final.svc.linear = svm(outcome.response ~ .,
 summary(final.svc.linear)
 final.svc.linear$index
 final.svc.linear.pred = predict(final.svc.linear, new.KDD.train)
-final.svc.linear.contingency = table(truth = new.KDD.train[,'outcome.response'], prediction = final.svc.linear.pred)
-sum(diag(final.svc.linear.contingency))/sum(final.svc.linear.contingency) #X% accuracy
+accuracy(new.KDD.train[,'outcome.response'], final.svc.linear.pred) #X% accuracy
 
 
 #######################
@@ -93,9 +97,7 @@ summary(cv.svm.radial$best.model)
 
 #Best model accuracy
 best.svm.radial.pred = predict(cv.svm.radial$best.model, test)
-best.svm.radial.contingency = table(truth = test$outcome.response, prediction = best.svm.radial.pred)
-best.svm.radial.contingency
-sum(diag(best.svm.radial.contingency))/sum(best.svm.radial.contingency) #X% accuracy
+accuracy(test$outcome.response, best.svm.radial.pred) #X% accuracy
 
 #Constructing and visualizing the final model.
 final.svm.radial = svm(outcome.response ~ .,
@@ -106,5 +108,4 @@ final.svm.radial = svm(outcome.response ~ .,
 summary(final.svm.radial)
 final.svm.radial$index
 final.svm.radial.pred = predict(final.svm.radial, new.KDD.train)
-final.svm.radial.contingency = table(truth = new.KDD.train[,'outcome.response'], prediction = final.svm.radial.pred)
-sum(diag(final.svm.radial.contingency))/sum(final.svm.radial.contingency) #X% accuracy
+accuracy(new.KDD.train[,'outcome.response'], final.svm.radial.pred) #X% accuracy

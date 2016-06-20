@@ -7,6 +7,13 @@ library(glmnet)
 library(car)
 library(MASS)
 
+#Define accuracy function
+accuracy = function(target, pred) {
+  contingency = table(truth = target, prediction = pred)
+  cat(sum(diag(contingency))/sum(contingency),'\n')
+  return(contingency)
+}
+
 #Creating the data matrices for the glmnet() function.
 x = model.matrix(outcome.response ~ ., subset(new.KDD.train, select=-c(num_outbound_cmds)))[, -1]
 y = new.KDD.train$outcome.response
@@ -46,15 +53,19 @@ log(logit.cv$lambda.min) #-11.39722
 lambda = exp(-3) #lamdba.min still keeps ~110 features. Need to balance complexity and accuracy
 
 
-#Checking accuracy of model
+#Checking accuracy of model - train data, test subset
 logit.test.class = predict(logit.cv, 
                            s = lambda, 
                            type = 'class',
                            newx = x[-train, ])
-logit.contingency = table(truth = y[-train], prediction = logit.test.class)
-logit.contingency
-sum(diag(logit.contingency))/sum(logit.contingency) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
+accuracy(y[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 
+#Checking accuracy of model - test data
+logit.test.class.final = predict(logit.cv, 
+                                 s = lambda, 
+                                 type = 'class',
+                                 newx = new.KDD.test[,-123])
+accuracy(new.KDD.test[,123], logit.test.class.final) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
@@ -67,6 +78,9 @@ logit.nonzero = predict(logit.cv,
                         type = 'nonzero')
 colnames(x)[logit.nonzero[,1]]
 
+#####################
+#### Lambda Plot ####
+#####################
 
 #Plot lambda vs coefficients vs accuracy
 res = data.frame(matrix(ncol = 3, nrow = length(grid)))
@@ -86,24 +100,34 @@ for (i in 1:length(grid)) {
 }
 plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
      xlab="Count of features", ylab="Accuracy", pch=16)
+rm(i,t)
 
+#####################
+#### Diagnostics ####
+#####################
 
-###############
-#### TO DO ####
-###############
+#formula = as.formula(paste("outcome.response ~", paste(colnames(x)[logit.nonzero[,1]], collapse = " + ")))
+temp = colnames(x)[logit.nonzero[,1]]
+temp = temp[-6] #remove "wrong_fragment" which had high p-value
+formula = as.formula(paste("outcome.response ~", paste(temp, collapse = " + ")))
 
-# #Goodness of fit test i.e. Test of deviance
-# # H0: The logistic regression model is appropriate.
-# # H1: The logistic regression model is not appropriate.
-# pchisq(logit.overall$deviance, logit.overall$df.residual, lower.tail = FALSE)
-# 
-# #McFadden's pseudo R^2 based on the deviance
-# 1 - logit.overall$deviance/logit.overall$null.deviance
-# 
-# #Checking the model summary and assumptions
-# summary(logit)
-# plot(logit)
-# influencePlot(logit)
-# vif(logit.models)
-# avPlots(logit)
-# confint(logit)
+logit.glm = glm(formula, 
+                family = "binomial", 
+                data = new.KDD.train)
+
+#Goodness of fit test i.e. Test of deviance
+# H0: The logistic regression model is appropriate.
+# H1: The logistic regression model is not appropriate.
+pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate
+
+#McFadden's pseudo R^2 based on the deviance
+1 - logit.glm$deviance/logit.glm$null.deviance #~84%
+
+#Checking the model summary and assumptions
+summary(logit.glm)
+plot(logit.glm)
+library(car)
+influencePlot(logit.glm)
+vif(logit.glm)
+avPlots(logit.glm)
+confint(logit.glm)
