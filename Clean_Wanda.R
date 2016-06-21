@@ -58,11 +58,23 @@ for (i in 1:dim(new.KDD.test)[2]) {
 new.KDD.train = subset(new.KDD.train, select=-c(num_outbound_cmds))
 new.KDD.test = subset(new.KDD.test, select=-c(num_outbound_cmds))
 
-#Add missing levels in test, set to 0, and reorder to match train
+#Group missing levels in train and add grouped column in test
+new.KDD.train$grp.lvl = 0
 for (i in names(b[b==FALSE])) {
-  new.KDD.test[,i] = 0
+  for (j in 1:nrow(new.KDD.train)){
+    if (new.KDD.train[j,i]==1) {
+      new.KDD.train$grp.lvl[j]=1  
+    }
+  }
 }
-new.KDD.test = new.KDD.test[colnames(new.KDD.train)]
+new.KDD.train = subset(new.KDD.train, select=-which(b==FALSE))
+new.KDD.test$grp.lvl = 0
+
+# #Add missing levels in test, set to 0, and reorder to match train
+# for (i in names(b[b==FALSE])) {
+#   new.KDD.test[,i] = 0
+# }
+# new.KDD.test = new.KDD.test[colnames(new.KDD.train)]
 
 #Check if columns match between train and test
 names(new.KDD.test)==names(new.KDD.train)

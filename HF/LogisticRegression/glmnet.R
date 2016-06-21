@@ -48,15 +48,15 @@ bin.col[bin.col$unique==2,]
 bin.col = bin.col[bin.col$unique==2,1]
 
 #Scaling non-binary columns in train
-new.KDD.train.scaled = sapply(new.KDD.train[,-c(bin.col,122)], Standard_self)
-new.KDD.train.scaled = cbind(new.KDD.train[,c(bin.col,122)], new.KDD.train.scaled)
+new.KDD.train.scaled = sapply(new.KDD.train[,-c(bin.col,116)], Standard_self)
+new.KDD.train.scaled = cbind(new.KDD.train[,c(bin.col,116)], new.KDD.train.scaled)
 new.KDD.train.scaled = new.KDD.train.scaled[,colnames(new.KDD.train)]
 
 #Scaling non-binary columns in test
-ave = sapply(new.KDD.train[,-c(bin.col,122)], mean)
-sd = sapply(new.KDD.train[,-c(bin.col,122)], sd)
-new.KDD.test.scaled = sapply(new.KDD.test[,-c(bin.col,122)], function(x) Standard(x,ave,sd))
-new.KDD.test.scaled = cbind(new.KDD.test[,c(bin.col,122)], new.KDD.test.scaled)
+ave = sapply(new.KDD.train[,-c(bin.col,116)], mean)
+sd = sapply(new.KDD.train[,-c(bin.col,116)], sd)
+new.KDD.test.scaled = sapply(new.KDD.test[,-c(bin.col,116)], function(x) Standard(x,ave,sd))
+new.KDD.test.scaled = cbind(new.KDD.test[,c(bin.col,116)], new.KDD.test.scaled)
 new.KDD.test.scaled = new.KDD.test.scaled[,colnames(new.KDD.test)]
 
 #Creating the data matrices for the glmnet() function.
@@ -72,30 +72,30 @@ train = sample(1:nrow(x), 7*nrow(x)/10)
 
 #Fitting the logistic regression on a grid of lambda. Alpha = 1 for lasso penalty
 grid = 10^seq(0, -5, length = 200)
-logit.models = glmnet(x.train[train, ], y.train[train], 
-                      alpha = 1, 
-                      lambda = grid, 
-                      family="binomial")
-plot(logit.models, 
-     xvar = "lambda", 
-     label = TRUE, 
-     main = "Logistic Regression with Lasso penalty\n")
+# logit.models = glmnet(x.train[train, ], y.train[train], 
+#                       alpha = 1, 
+#                       lambda = grid, 
+#                       family="binomial")
+# plot(logit.models, 
+#      xvar = "lambda", 
+#      label = TRUE, 
+#      main = "Logistic Regression with Lasso penalty\n")
 
 
 #Cross-validation
 set.seed(0)
 logit.cv = cv.glmnet(x.train[train, ], y.train[train], 
                      alpha = 1,            #Lasso penalty
-                     nfolds = 5,           #5-fold CV
+                     nfolds = 3,           #k-fold CV
                      type.measure='class', #Misclassification measure
                      family="binomial",    #Logistic regression
                      lambda = grid)
-plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
+# plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
 
 
 #Best lambda
-logit.cv$lambda.min #1.122668e-05
-log(logit.cv$lambda.min) #-11.39722
+logit.cv$lambda.min #1.122668e-05 with k=5; 1.189534e-05 with k=10
+log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10
 lambda = exp(-3) #lamdba.min still keeps ~110 features. Need to balance complexity and accuracy
 
 
@@ -105,7 +105,11 @@ logit.test.class = predict(logit.cv,
                            type = 'class',
                            newx = x.train[-train, ])
 accuracy(y.train[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
-
+#lambda=exp(-3): 94.5% (seed=0), k=5
+#lambda.min: 97.6% (seed=0), k=5
+#lambda=exp(-3): 0.9451471 (seed=100), k=5
+#lambda=exp(-3): 0.9445914 (seed=30), k=5
+#lambda=exp(-3): 0.9447767 (seed=0), k=10
 
 #Checking accuracy of model - test data
 logit.test.class.final = predict(logit.cv, 
@@ -113,7 +117,11 @@ logit.test.class.final = predict(logit.cv,
                                  type = 'class',
                                  newx = x.test)
 accuracy(y.test, logit.test.class.final) #69.8% accuracy with lambda=exp(-3)
-
+#lambda=exp(-3): 69.8% (seed=0), k=5
+#lambda.min: 
+#lambda=exp(-3): 0.6972896% (seed=100), k=5
+#lambda=exp(-3): 0.6970235 (seed=30), k=5
+#lambda=exp(-3): 0.6978219 (seed=0), k=10
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
