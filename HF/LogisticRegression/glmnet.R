@@ -7,6 +7,23 @@ library(glmnet)
 library(car)
 library(MASS)
 
+
+###################
+#### Functions ####
+###################
+
+#Define standardization function for train
+Standard_self<-function(data) {
+  data=(data-mean(data))/sd(data)
+  return (data)
+}
+
+#Define standardization function for test
+Standard<-function(data,ave,sd) {
+  data=(data-ave)/sd
+  return (data)
+}
+
 #Define accuracy function
 accuracy = function(target, pred) {
   contingency = table(truth = target, prediction = pred)
@@ -14,11 +31,39 @@ accuracy = function(target, pred) {
   return(contingency)
 }
 
+#########################
+#### Scale and split ####
+#########################
+
+#Finding binary columns to exclude from scaling
+bin.col = data.frame(matrix(ncol = 4, nrow = dim(new.KDD.train)[2]-1))
+colnames(bin.col) = c('col','unique','max','min')
+for (i in 1:(dim(new.KDD.train)[2]-1)) {
+  bin.col[i,1]=i
+  bin.col[i,2]=length(unique(new.KDD.train[,i]))
+  bin.col[i,3]=max(new.KDD.train[,i])
+  bin.col[i,4]=min(new.KDD.train[,i])
+}
+bin.col[bin.col$unique==2,]
+bin.col = bin.col[bin.col$unique==2,1]
+
+#Scaling non-binary columns in train
+new.KDD.train.scaled = sapply(new.KDD.train[,-c(bin.col,122)], Standard_self)
+new.KDD.train.scaled = cbind(new.KDD.train[,c(bin.col,122)], new.KDD.train.scaled)
+new.KDD.train.scaled = new.KDD.train.scaled[,colnames(new.KDD.train)]
+
+#Scaling non-binary columns in test
+ave = sapply(new.KDD.train[,-c(bin.col,122)], mean)
+sd = sapply(new.KDD.train[,-c(bin.col,122)], sd)
+new.KDD.test.scaled = sapply(new.KDD.test[,-c(bin.col,122)], function(x) Standard(x,ave,sd))
+new.KDD.test.scaled = cbind(new.KDD.test[,c(bin.col,122)], new.KDD.test.scaled)
+new.KDD.test.scaled = new.KDD.test.scaled[,colnames(new.KDD.test)]
+
 #Creating the data matrices for the glmnet() function.
-x = model.matrix(outcome.response ~ ., new.KDD.train)[, -1]
-y = new.KDD.train$outcome.response
-x.test = model.matrix(outcome.response ~ ., new.KDD.test)[, -1]
-y.test = new.KDD.test$outcome.response
+x.train = model.matrix(outcome.response ~ ., new.KDD.train.scaled)[, -1]
+y.train = new.KDD.train.scaled$outcome.response
+x.test = model.matrix(outcome.response ~ ., new.KDD.test.scaled)[, -1]
+y.test = new.KDD.test.scaled$outcome.response
 
 #Creating training and test sets
 set.seed(0)
@@ -27,7 +72,7 @@ train = sample(1:nrow(x), 7*nrow(x)/10)
 
 #Fitting the logistic regression on a grid of lambda. Alpha = 1 for lasso penalty
 grid = 10^seq(0, -5, length = 200)
-logit.models = glmnet(x[train, ], y[train], 
+logit.models = glmnet(x.train[train, ], y.train[train], 
                       alpha = 1, 
                       lambda = grid, 
                       family="binomial")
@@ -39,7 +84,7 @@ plot(logit.models,
 
 #Cross-validation
 set.seed(0)
-logit.cv = cv.glmnet(x[train, ], y[train], 
+logit.cv = cv.glmnet(x.train[train, ], y.train[train], 
                      alpha = 1,            #Lasso penalty
                      nfolds = 5,           #5-fold CV
                      type.measure='class', #Misclassification measure
@@ -58,8 +103,8 @@ lambda = exp(-3) #lamdba.min still keeps ~110 features. Need to balance complexi
 logit.test.class = predict(logit.cv, 
                            s = lambda, 
                            type = 'class',
-                           newx = x[-train, ])
-accuracy(y[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
+                           newx = x.train[-train, ])
+accuracy(y.train[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 
 
 #Checking accuracy of model - test data
@@ -67,7 +112,7 @@ logit.test.class.final = predict(logit.cv,
                                  s = lambda, 
                                  type = 'class',
                                  newx = x.test)
-accuracy(y.test, logit.test.class.final) #76% accuracy with lambda=exp(-3)
+accuracy(y.test, logit.test.class.final) #69.8% accuracy with lambda=exp(-3)
 
 
 #Coefficients: 
@@ -106,7 +151,7 @@ summary.plot = function(x,y) {
        xlab="Count of features", ylab="Accuracy", pch=16)
   return(res)
 }
-summary.plot(x[-train,], y[-train])
+summary.plot(x.train[-train,], y.train[-train])
 summary.plot(x.test, y.test)
 
 #####################
@@ -118,14 +163,14 @@ model.var = colnames(x)[logit.nonzero[,1]]
 formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
 logit.glm = glm(formula, 
                 family = "binomial", 
-                data = new.KDD.train)
+                data = new.KDD.train.scaled)
 summary(logit.glm) #"wrong_fragment" is not significant
 
 model.var = model.var[-6] #remove "wrong_fragment" which had high p-value
 formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
 logit.glm = glm(formula, 
                 family = "binomial", 
-                data = new.KDD.train)
+                data = new.KDD.train.scaled)
 summary(logit.glm) #all coefficients are significant
 
 #Goodness of fit test i.e. Test of deviance
