@@ -18,6 +18,12 @@ KDD.test <-read.csv("./data/KDDTest+.csv", header = FALSE,
                     stringsAsFactors = FALSE)
 colnames(KDD.test) <- column.names #Rename columns
 
+KDD.shuffle = rbind(KDD.train, KDD.test)
+set.seed(0)
+shuffle.train = sample(1:nrow(KDD.shuffle), nrow(KDD.train))
+new.KDD.train = KDD.shuffle[shuffle.train, ]
+new.KDD.test = KDD.shuffle[-shuffle.train, ]
+
 #Function to prep, munge and dummify train and test data
 prep = function(df) {
   names(df)[42] <- "outcome"
@@ -36,11 +42,11 @@ prep = function(df) {
 }
 
 #Run function on train
-new.KDD.train = prep(KDD.train) #84 dummy features, new dim: 125973 123
+new.KDD.train = prep(new.KDD.train) #84 dummy features, new dim: 125973 123
 mean(new.KDD.train$outcome.response==1) #46.5% malicious connections
 
 #Run function on test
-new.KDD.test = prep(KDD.test) #77 dummy features, new dim: 22543 116
+new.KDD.test = prep(new.KDD.test) #77 dummy features, new dim: 22543 116
 mean(new.KDD.test$outcome.response==1) #56.9% malicious connections
 
 #Comparing columns in test and train

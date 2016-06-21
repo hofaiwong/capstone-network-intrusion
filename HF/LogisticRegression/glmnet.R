@@ -110,6 +110,7 @@ accuracy(y.train[-train], logit.test.class) #94.5% accuracy with lambda=exp(-3);
 #lambda=exp(-3): 0.9451471 (seed=100), k=5
 #lambda=exp(-3): 0.9445914 (seed=30), k=5
 #lambda=exp(-3): 0.9447767 (seed=0), k=10
+#Shuffled: 0.9172047
 
 #Checking accuracy of model - test data
 logit.test.class.final = predict(logit.cv, 
@@ -122,6 +123,7 @@ accuracy(y.test, logit.test.class.final) #69.8% accuracy with lambda=exp(-3)
 #lambda=exp(-3): 0.6972896% (seed=100), k=5
 #lambda=exp(-3): 0.6970235 (seed=30), k=5
 #lambda=exp(-3): 0.6978219 (seed=0), k=10
+#Shuffled: 0.8559198
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
