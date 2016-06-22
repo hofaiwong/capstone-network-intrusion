@@ -23,10 +23,12 @@ Standard<-function(data,ave,sd) {
   return (data)
 }
 
-#Define accuracy function
-accuracy = function(target, pred) {
+#Define performance function
+performance = function(target, pred) {
   contingency = table(truth = target, prediction = pred)
-  cat(sum(diag(contingency))/sum(contingency),'\n')
+  cat('Accuracy: ',sum(diag(contingency))/sum(contingency),'\n')
+  cat('True positive: ',contingency[2,2]/sum(contingency[,2]),'\n')
+  cat('False negative: ',contingency[2,1]/sum(contingency[,1]),'\n')
   return(contingency)
 }
 
@@ -35,12 +37,6 @@ accuracy = function(target, pred) {
 #########################
 #### Scale and split ####
 #########################
-
-#Define standardization function for train
-Standard_self<-function(data) {
-  data=(data-mean(data))/sd(data)
-  return (data)
-}
 
 #Finding binary columns to exclude from scaling
 bin.col = data.frame(matrix(ncol = 4, nrow = dim(new.KDD.train)[2]-1))
@@ -110,12 +106,12 @@ log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10; -9.314477 wit
 lambda = exp(-4) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
 
 
-#Checking accuracy of model - train data, test subset
+#Checking performance of model - train data, test subset
 logit.test.class = predict(logit.cv, 
                            s = lambda, 
                            type = 'class',
                            newx = x.train[-train, ])
-accuracy(y.train[-train], logit.test.class) 
+performance(y.train[-train], logit.test.class) 
 #94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
 #lambda=exp(-3): 94.5% (seed=0), k=5
 #lambda.min: 97.6% (seed=0), k=5
@@ -124,12 +120,12 @@ accuracy(y.train[-train], logit.test.class)
 #lambda=exp(-3): 0.9447767 (seed=0), k=10
 #Shuffled, exp(-4), k=10: 0.9402784 
 
-#Checking accuracy of model - test data
+#Checking performance of model - test data
 logit.test.class.final = predict(logit.cv, 
                                  s = lambda, 
                                  type = 'class',
                                  newx = x.test)
-accuracy(y.test, logit.test.class.final) 
+performance(y.test, logit.test.class.final) 
 #69.8% accuracy with lambda=exp(-3)
 #lambda=exp(-3): 69.8% (seed=0), k=5
 #lambda.min: 
@@ -149,9 +145,9 @@ logit.nonzero = predict(logit.cv,
                         type = 'nonzero')
 colnames(x.train)[logit.nonzero[,1]]
 
-##########################
-#### Accuracy Summary ####
-##########################
+#############################
+#### Performance Summary ####
+#############################
 
 #Plot lambda vs coefficients vs accuracy
 summary.plot = function(x,y) {
