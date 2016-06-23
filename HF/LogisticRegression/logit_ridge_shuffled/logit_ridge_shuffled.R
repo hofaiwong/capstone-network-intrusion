@@ -78,7 +78,7 @@ set.seed(0)
 train = sample(1:nrow(x.train), 7*nrow(x.train)/10)
 
 #Fitting the logistic regression on a grid of lambda. Alpha = 0 for Ridge
-grid = 10^seq(0, -5, length = 200)
+grid = 10^seq(5, -5, length = 200)
 logit.models = glmnet(x.train[train, ], y.train[train],
                       alpha = 0,
                       lambda = grid,
@@ -101,10 +101,10 @@ plot(logit.cv, main = "Logistic Regression with Ridge penalty\n")
 
 
 #Best lambda
-logit.cv$lambda.min #0.0008119845
-log(logit.cv$lambda.min) #-7.116029
-lambda = exp(-4) #lamdba.min still keeps ~100+ features. Need to balance complexity and accuracy
-
+logit.cv$lambda.min #0.0009115888
+log(logit.cv$lambda.min) #-7.000322
+lambda = logit.cv$lamdba.min #In ridge, no features are dropped so might as well use the best lambda
+#saveRDS(logit.cv, file='logit_ridge_shuffled.rds')
 
 #Checking performance of model - train data, test subset
 logit.test.class = predict(logit.cv, 
@@ -126,12 +126,12 @@ logit.test.class.final = predict(logit.cv,
                                  type = 'class',
                                  newx = x.test)
 performance(y.test, logit.test.class.final) 
-# Accuracy:  0.791066 
-# True positive:  0.7338539 
-# False negative:  0.1282216 
+# Accuracy:  0.7911547 
+# True positive:  0.7339651 
+# False negative:  0.1281942 
 # prediction
 # truth    0    1
-# 0 8152 3511
+# 0 8154 3509
 # 1 1199 9681
 
 #Coefficients: 
@@ -142,36 +142,36 @@ sum(logit.coef!=0)-1 #Keep all features with Ridge
 logit.coef
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
-                        type = 'nonzero')
+                        type = 'nonzero') #All are non-zero in Ridge
 colnames(x.train)[logit.nonzero[,1]]
 
-#############################
-#### Performance Summary ####
-#############################
-
-#Plot lambda vs coefficients vs accuracy
-summary.plot = function(x,y) {
-  res = data.frame(matrix(ncol = 3, nrow = length(grid)))
-  colnames(res) = c('lambda','accuracy','coef')
-  for (i in 1:length(grid)) {
-    #Insert lambda
-    res[i,1] = grid[i]
-    
-    #Insert accuracy %
-    pred.class = predict(logit.cv, s = grid[i], type = 'class', newx = x)
-    t = table(truth = y, prediction = pred.class)
-    res[i,2] = sum(diag(t))/sum(t)
-    
-    #Insert coef count
-    pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
-    res[i,3] = sum(pred.coef!=0)-1
-  }
-  plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
-       xlab="Count of features", ylab="Accuracy", pch=16)
-  return(res)
-}
-summary.plot(x.train[-train,], y.train[-train])
-summary.plot(x.test, y.test)
+# #############################
+# #### Performance Summary ####
+# #############################
+# 
+# #Plot lambda vs coefficients vs accuracy
+# summary.plot = function(x,y) {
+#   res = data.frame(matrix(ncol = 3, nrow = length(grid)))
+#   colnames(res) = c('lambda','accuracy','coef')
+#   for (i in 1:length(grid)) {
+#     #Insert lambda
+#     res[i,1] = grid[i]
+#     
+#     #Insert accuracy %
+#     pred.class = predict(logit.cv, s = grid[i], type = 'class', newx = x)
+#     t = table(truth = y, prediction = pred.class)
+#     res[i,2] = sum(diag(t))/sum(t)
+#     
+#     #Insert coef count
+#     pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
+#     res[i,3] = sum(pred.coef!=0)-1
+#   }
+#   plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
+#        xlab="Count of features", ylab="Accuracy", pch=16)
+#   return(res)
+# }
+# summary.plot(x.train[-train,], y.train[-train])
+# summary.plot(x.test, y.test)
 
 #####################
 #### Diagnostics ####

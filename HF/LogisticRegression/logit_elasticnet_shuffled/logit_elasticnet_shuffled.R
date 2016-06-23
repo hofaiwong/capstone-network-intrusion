@@ -1,6 +1,6 @@
 #################################################
 ####       Network Intrusion Detection       ####
-#### Logistic Regression with Ridge - GLMNET ####
+#### Logistic Regression with Elasticnet - GLMNET ####
 #################################################
 
 library(glmnet)
@@ -64,7 +64,7 @@ new.KDD.test.scaled = new.KDD.test.scaled[,colnames(new.KDD.test.shuffle)]
 
 
 #####################
-#### Logit Ridge ####
+#### Logit Elasticnet ####
 #####################
 
 #Creating the data matrices for the glmnet() function.
@@ -77,34 +77,34 @@ y.test = new.KDD.test.scaled$outcome.response
 set.seed(0)
 train = sample(1:nrow(x.train), 7*nrow(x.train)/10)
 
-#Fitting the logistic regression on a grid of lambda. Alpha = 0 for Ridge
+#Fitting the logistic regression on a grid of lambda. Alpha = 0.5 for elasticnet
 grid = 10^seq(0, -5, length = 200)
 logit.models = glmnet(x.train[train, ], y.train[train],
-                      alpha = 0,
+                      alpha = 0.5,
                       lambda = grid,
                       family="binomial")
 plot(logit.models,
      xvar = "lambda",
      label = TRUE,
-     main = "Logistic Regression with Ridge penalty\n")
+     main = "Logistic Regression with Elasticnet penalty\n")
 
 
 #Cross-validation
 set.seed(0)
 logit.cv = cv.glmnet(x.train[train, ], y.train[train], 
-                     alpha = 0,         #Ridge penalty
+                     alpha = 0.5,         #Elasticnet penalty
                      nfolds = 10,          #k-fold CV
                      type.measure='class', #Misclassification measure
                      family="binomial",    #Logistic regression
                      lambda = grid)
-plot(logit.cv, main = "Logistic Regression with Ridge penalty\n")
+plot(logit.cv, main = "Logistic Regression with Elasticnet penalty\n")
 
 
 #Best lambda
-logit.cv$lambda.min #0.0008119845
-log(logit.cv$lambda.min) #-7.116029
+logit.cv$lambda.min #2.0022e-05
+log(logit.cv$lambda.min) #-10.81868
 lambda = exp(-4) #lamdba.min still keeps ~100+ features. Need to balance complexity and accuracy
-
+#saveRDS(logit.cv, file='logit_elasticnet_shuffled.rds')
 
 #Checking performance of model - train data, test subset
 logit.test.class = predict(logit.cv, 
@@ -112,13 +112,13 @@ logit.test.class = predict(logit.cv,
                            type = 'class',
                            newx = x.train[-train, ])
 performance(y.train[-train], logit.test.class) 
-# Accuracy:  0.9520004 
-# True positive:  0.96609 
-# False negative:  0.06009639 
+# Accuracy:  0.9488781 
+# True positive:  0.9675851 
+# False negative:  0.06687463 
 # prediction
 # truth     0     1
-# 0 19112   592
-# 1  1222 16866
+# 0 19144   560
+# 1  1372 16716
 
 #Checking performance of model - test data
 logit.test.class.final = predict(logit.cv, 
@@ -126,19 +126,19 @@ logit.test.class.final = predict(logit.cv,
                                  type = 'class',
                                  newx = x.test)
 performance(y.test, logit.test.class.final) 
-# Accuracy:  0.791066 
-# True positive:  0.7338539 
-# False negative:  0.1282216 
+# Accuracy:  0.845584 
+# True positive:  0.8211093 
+# False negative:  0.1288332 
 # prediction
 # truth    0    1
-# 0 8152 3511
-# 1 1199 9681
+# 0 9602 2061
+# 1 1420 9460
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
                      s = lambda, 
                      type = 'coefficients')
-sum(logit.coef!=0)-1 #Keep all features with Ridge
+sum(logit.coef!=0)-1 #Keep ~115 features with lambda.min, 34 with lambda=exp(-4)
 logit.coef
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
@@ -183,14 +183,14 @@ formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " +
 logit.glm = glm(formula, 
                 family = "binomial", 
                 data = new.KDD.train.scaled)
-summary(logit.glm) #a lot of insignificant features...
+summary(logit.glm) #icmp, serror_rate are not significant
 
-# model.var = model.var[-c(13,24)]
-# formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
-# logit.glm = glm(formula,
-#                 family = "binomial",
-#                 data = new.KDD.train.scaled)
-# summary(logit.glm)
+model.var = model.var[-c(13,24)]
+formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
+logit.glm = glm(formula,
+                family = "binomial",
+                data = new.KDD.train.scaled)
+summary(logit.glm) #all coefficients are significant
 
 #Goodness of fit test i.e. Test of deviance
 pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate
@@ -201,6 +201,8 @@ pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value o
 #Variance Inflation Factor
 vif(logit.glm)
 vif(logit.glm)[vif(logit.glm)>5]
+#     ftp         private             udp              SF  is_guest_login srv_rerror_rate 
+# 20.730881        6.317593        8.477852       25.241811       20.528019       21.344797
 
 #Remove multicollinearly correlated features
 formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
