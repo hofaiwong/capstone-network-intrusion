@@ -6,6 +6,7 @@
 library(glmnet)
 library(car)
 library(MASS)
+library(ggplot2)
 
 ###################
 #### Functions ####
@@ -103,7 +104,7 @@ plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
 #Best lambda
 logit.cv$lambda.min #1.122668e-05 with k=5; 1.189534e-05 with k=10; 9.011018e-05 with k=10 and shuffled data
 log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10; -9.314477 with k=10 and shuffled data
-lambda = exp(-4) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
+lambda = exp(-3) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
 #saveRDS(logit.cv, file='logit_lasso_shuffled.rds')
 
 #Checking performance of model - train data, test subset
@@ -119,6 +120,7 @@ performance(y.train[-train], logit.test.class)
 #lambda=exp(-3): 0.9445914 (seed=30), k=5
 #lambda=exp(-3): 0.9447767 (seed=0), k=10
 #Shuffled, exp(-4), k=10: 0.9402784 
+#Shuffled, exp(-3), k=10: 0.9172047
 
 #Checking performance of model - test data
 logit.test.class.final = predict(logit.cv, 
@@ -133,12 +135,13 @@ performance(y.test, logit.test.class.final)
 #lambda=exp(-3): 0.6970235 (seed=30), k=5
 #lambda=exp(-3): 0.6978219 (seed=0), k=10
 #Shuffled, exp(-4), k=10: 0.868651 
+#Shuffled, exp(-3), k=10: 0.856319
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
                      s = lambda, 
                      type = 'coefficients')
-sum(logit.coef!=0)-1 #Keep ~110 features with lambda.min, 23 with lambda=exp(-4)
+sum(logit.coef!=0)-1 #Keep ~110 features with lambda.min, 23 with lambda=exp(-4), 11 with lambda=exp(-3)
 logit.coef
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
@@ -166,12 +169,24 @@ summary.plot = function(x,y) {
     pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
     res[i,3] = sum(pred.coef!=0)-1
   }
-  plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
-       xlab="Count of features", ylab="Accuracy", pch=16)
+  # plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
+  #      xlab="Count of features", ylab="Accuracy", pch=16)
   return(res)
 }
-summary.plot(x.train[-train,], y.train[-train])
-summary.plot(x.test, y.test)
+plot.train = summary.plot(x.train[-train,], y.train[-train])
+plot.test = summary.plot(x.test, y.test)
+
+#Draw plot
+ggplot(plot.train,aes(coef, accuracy)) + 
+  geom_point(aes(colour='red')) +
+  geom_point(data=plot.test, aes(x=coef, y=accuracy, colour='blue')) +
+  labs(title="Model accuracy by number of features",
+       x="Count of features",
+       y="Accuracy",
+       colour="Data") +
+  scale_colour_discrete(labels = c("Test", "Train")) +
+  geom_vline(xintercept = 11)
+
 
 #####################
 #### Diagnostics ####
@@ -183,12 +198,12 @@ formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " +
 logit.glm = glm(formula, 
                 family = "binomial", 
                 data = new.KDD.train.scaled)
-summary(logit.glm) #All features are significant!
+summary(logit.glm) #logged_in is not significant
 
-# model.var = model.var[-c(11,18)]
+# model.var = model.var[-7]
 # formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
-# logit.glm = glm(formula, 
-#                 family = "binomial", 
+# logit.glm = glm(formula,
+#                 family = "binomial",
 #                 data = new.KDD.train.scaled)
 # summary(logit.glm) #all coefficients are significant
 
@@ -196,14 +211,20 @@ summary(logit.glm) #All features are significant!
 pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate
 
 #McFadden's pseudo R^2 based on the deviance
-1 - logit.glm$deviance/logit.glm$null.deviance #0.7809584 variance explained
+1 - logit.glm$deviance/logit.glm$null.deviance #0.7317411 variance explained
 
 #Variance Inflation Factor
-vif(logit.glm) #all < 5, can consider no multicollinearity to deal with
+vif(logit.glm)
+vif(logit.glm)[vif(logit.glm)>5] #Null, no multicollinearity
 
 #Checking performance of prediction
-logit.pred = round(logit.glm$fitted.values)
-performance(new.KDD.train$outcome.response, logit.pred)
+logit.pred.train = round(logit.glm$fitted.values)
+performance(new.KDD.train.scaled$outcome.response, logit.pred.train)
+logit.pred.test = round(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'))
+performance(new.KDD.test.scaled$outcome.response, logit.pred.test)
+
+saveRDS(predict(logit.glm, newdata=new.KDD.train.scaled, type='response'), file='logit.pred.train.proba.rds')
+saveRDS(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'), file='logit.pred.test.proba.rds')
 
 #Checking the model summary and assumptions
 plot(logit.glm)

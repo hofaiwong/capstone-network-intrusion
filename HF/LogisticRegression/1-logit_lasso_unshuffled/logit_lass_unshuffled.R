@@ -6,6 +6,7 @@
 library(glmnet)
 library(car)
 library(MASS)
+library(ggplot2)
 
 ###################
 #### Functions ####
@@ -103,7 +104,7 @@ plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
 #Best lambda
 logit.cv$lambda.min #1.122668e-05 with k=5; 1.189534e-05 with k=10; 9.011018e-05 with k=10 and shuffled data
 log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10; -9.314477 with k=10 and shuffled data
-lambda = exp(-4) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
+lambda = exp(-3) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
 
 
 #Checking performance of model - train data, test subset
@@ -138,7 +139,7 @@ performance(y.test, logit.test.class.final)
 logit.coef = predict(logit.cv, 
                      s = lambda, 
                      type = 'coefficients')
-sum(logit.coef!=0)-1 #Keep ~110 features with lambda.min, 19 with lambda=exp(-4)
+sum(logit.coef!=0)-1 #Keep ~110 features with lambda.min, 19 with lambda=exp(-3)
 logit.coef
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
@@ -166,12 +167,24 @@ summary.plot = function(x,y) {
     pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
     res[i,3] = sum(pred.coef!=0)-1
   }
-  plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
-       xlab="Count of features", ylab="Accuracy", pch=16)
+  # plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
+  #      xlab="Count of features", ylab="Accuracy", pch=16)
   return(res)
 }
-summary.plot(x.train[-train,], y.train[-train])
-summary.plot(x.test, y.test)
+plot.train = summary.plot(x.train[-train,], y.train[-train])
+plot.test = summary.plot(x.test, y.test)
+
+#Draw plot
+ggplot(plot.train,aes(coef, accuracy)) + 
+  geom_point(aes(colour='red')) +
+  geom_point(data=plot.test, aes(x=coef, y=accuracy, colour='blue')) +
+  labs(title="Model accuracy by number of features",
+       x="Count of features",
+       y="Accuracy",
+       colour="Data") +
+  scale_colour_discrete(labels = c("Test", "Train")) +
+  geom_vline(xintercept = 19)
+
 
 #####################
 #### Diagnostics ####
@@ -199,11 +212,17 @@ pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value o
 1 - logit.glm$deviance/logit.glm$null.deviance #0.8584628 variance explained
 
 #Variance Inflation Factor
-vif(logit.glm) #all < 5, can consider no multicollinearity to deal with
+vif(logit.glm) 
+vif(logit.glm)[vif(logit.glm)>5] #Null, no multicollinearity
 
 #Checking performance of prediction
-logit.pred = round(logit.glm$fitted.values)
-performance(new.KDD.train$outcome.response, logit.pred)
+logit.pred.train = round(logit.glm$fitted.values)
+performance(new.KDD.train.scaled$outcome.response, logit.pred.train)
+logit.pred.test = round(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'))
+performance(new.KDD.test.scaled$outcome.response, logit.pred.test)
+
+saveRDS(predict(logit.glm, newdata=new.KDD.train.scaled, type='response'), file='logit.pred.train.proba.unshuffled.rds')
+saveRDS(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'), file='logit.pred.test.proba.unshuffled.rds')
 
 #Checking the model summary and assumptions
 plot(logit.glm)

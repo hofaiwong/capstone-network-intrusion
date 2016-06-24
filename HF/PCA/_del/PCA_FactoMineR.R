@@ -7,7 +7,7 @@ library(FactoMineR)
 #### PCA on KDD.train
 KDD.train2 = KDD.train[,-c(42,43)]
 #index_discrete = c('protocol_type','service','flag','land','logged_in','root_shell','su_attempted','is_hot_login','is_guest_login','outcome_response')
-index_discrete = c(2,3,4,7,12,14,15,21,22,42)
+index_discrete = c(2,3,4,7,12,14,15,21,22)
 res.pca <- PCA(KDD.train2,
                quali.sup = index_discrete)
 
