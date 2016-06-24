@@ -104,7 +104,7 @@ plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
 #Best lambda
 logit.cv$lambda.min #1.122668e-05 with k=5; 1.189534e-05 with k=10; 9.011018e-05 with k=10 and shuffled data
 log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10; -9.314477 with k=10 and shuffled data
-lambda = exp(-3) #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
+lambda = exp(-6) #logit.cv$lambda.min #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
 
 
 #Checking performance of model - train data, test subset
@@ -134,6 +134,14 @@ performance(y.test, logit.test.class.final)
 #lambda=exp(-3): 0.6970235 (seed=30), k=5
 #lambda=exp(-3): 0.6978219 (seed=0), k=10
 #Shuffled, exp(-4), k=10: 0.868651 
+
+
+
+# saveRDS(predict(logit.cv, s=lambda, newx = x.train, type='response'), file='logit.pred.train.proba.unshuffled.rds')
+# saveRDS(predict(logit.cv, s=lambda, newx = x.test, type='response'), file='logit.pred.test.proba.unshuffled.rds')
+
+
+
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
@@ -183,7 +191,7 @@ ggplot(plot.train,aes(coef, accuracy)) +
        y="Accuracy",
        colour="Data") +
   scale_colour_discrete(labels = c("Test", "Train")) +
-  geom_vline(xintercept = 19)
+  geom_vline(xintercept = 110)
 
 
 #####################

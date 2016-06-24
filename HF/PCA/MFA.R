@@ -3,77 +3,84 @@
 ###############################
 
 library(FactoMineR)
+library(ggplot2)
 
-colnames(KDD.train)[42]='outcome'
-colnames(KDD.train)[43]='outcome.response'
-KDD.train[43] <- ifelse(KDD.train$outcome == 'normal',0,1)
-
+#------------- Prep train for FactoMineR ----------------------------#
 char.col = c(2,3,4,42)
 
-#Finding binary columns to exclude from scaling
-bin.col = data.frame(matrix(ncol = 4, nrow = dim(KDD.train)[2]-1))
-colnames(bin.col) = c('col','unique','max','min')
-for (i in 1:(dim(KDD.train)[2]-1)) {
-  bin.col[i,1]=i
-  bin.col[i,2]=length(unique(KDD.train[,i]))
-  bin.col[i,3]=max(KDD.train[,i])
-  bin.col[i,4]=min(KDD.train[,i])
+prep.pca = function(df) {
+  colnames(df)[42]='outcome'
+  colnames(df)[43]='outcome.response'
+  df[43] <- ifelse(df$outcome == 'normal',0,1)
+  
+  #Finding binary columns
+  bin.col = data.frame(matrix(ncol = 4, nrow = dim(df)[2]))
+  colnames(bin.col) = c('col','unique','max','min')
+  for (i in 1:(dim(df)[2])) {
+    bin.col[i,1]=i
+    bin.col[i,2]=length(unique(df[,i]))
+    bin.col[i,3]=max(df[,i])
+    bin.col[i,4]=min(df[,i])
+  }
+  bin.col = bin.col[bin.col$unique==2,1]
+  
+  l=seq(1:ncol(df))[-c(char.col, bin.col)]
+  
+  df$protocol_type = as.factor(df$protocol_type)
+  df$service = as.factor(df$service)
+  df$flag = as.factor(df$flag)
+  df$outcome = as.factor(df$outcome)
+  return(df)
 }
-bin.col = bin.col[bin.col$unique==2,1]
+KDD.train2 = prep.pca(KDD.train)
+KDD.test2 = prep.pca(KDD.test)
 
-l=seq(1:ncol(KDD.train))[-c(char.col, bin.col)]
 
-KDD.train2 = KDD.train[,c(char.col, bin.col, l)]
+#------------- PCA function in FactoMineR ----------------------------#
+#Train
+pca.train = PCA(KDD.train2, scale.unit = TRUE, ncp = 5, ind.sup = NULL, 
+                quanti.sup = c(43), 
+                quali.sup = char.col, 
+                graph = TRUE, axes = c(1,2))
+summary(pca.train)
+dimdesc(pca.train, axes=c(1,2))
+pca.train$quali.sup
+pca.train$quanti.sup
+draw.train = as.data.frame(pca.test$quali.sup$coord[,1:2])
+draw.train$attack = row.names(draw.train)
+#Draw plot
+ggplot(draw.train,aes(Dim.1, Dim.2)) + 
+  geom_text(label=draw.train$attack)
+barplot(pca.train$eig[,2], 
+        main = "Eigenvalues",
+        names.arg = paste("Dim", 1:nrow(pca.train$eig), sep = ""))
+plot(pca.train, choix = "var", axes = c(3, 4), lim.cos2.var = 0)
 
-KDD.train2$protocol_type = as.factor(KDD.train2$protocol_type)
-KDD.train2$service = as.factor(KDD.train2$service)
-KDD.train2$flag = as.factor(KDD.train2$flag)
-KDD.train2$outcome = as.factor(KDD.train2$outcome)
 
-# Group1: char  4 n
-# Group2: bin   5 c
-# Group3: continuous non bin 34
-set.seed(5)
-index = sample(1:nrow(KDD.train2),0.01*nrow(KDD.train2))
-df = KDD.train2[index,]#c(1:22,24:43)]
-# df = df[-42]
-# df = df[-c(1:3)]
+#Test
+pca.test = PCA(KDD.test2, scale.unit = TRUE, ncp = 5, ind.sup = NULL, 
+               quanti.sup = c(43), 
+               quali.sup = char.col, 
+               graph = TRUE, axes = c(1,2))
+summary(pca.test)
+dimdesc(pca.test, axes=c(1,2))
+pca.test$quali.sup
+pca.test$quanti.sup
+draw.test = as.data.frame(pca.test$quali.sup$coord[,1:2])
+draw.test$attack = row.names(draw.test)
+#Draw plot
+ggplot(draw.test,aes(Dim.1, Dim.2)) + 
+  geom_text(label=draw.test$attack)
+barplot(pca.test$eig[,2], 
+        main = "Eigenvalues",
+        names.arg = paste("Dim", 1:nrow(pca.test$eig), sep = ""))
+
+write.csv(pca.train$var$cor, file='pca_train_cont_cor.csv')
+write.csv(pca.test$var$cor, file='pca_test_cont_cor.csv')
+
+#------------- MFA function in FactoMineR ----------------------------#
 res = MFA(df, group = c(4,5,34), 
           type = c('n','c','s'),
           name.group = c('char','bin','continuous'))
 # res.adfm = DMFA(df, num.fact = 1, scale.unit = FALSE)
 # res.famd = FAMD(df)
-
-
-
-
-
-
-#################
-#### Example ####
-#################
-
-data(wine)
-res <- MFA(wine, group=c(2,5,3,10,9,2), type=c("n",rep("s",5)),
-           ncp=5, name.group=c("orig","olf","vis","olfag","gust","ens"),
-           num.group.sup=c(1,6))
-summary(res)
-barplot(res$eig[,1],main="Eigenvalues",names.arg=1:nrow(res$eig))
-
-
-## Not run:
-#### Confidence ellipses around categories per variable
-plotellipses(res)
-plotellipses(res,keepvar="Label") ## for 1 variable
-
-#### Interactive graph
-liste = plotMFApartial(res)
-plot(res,choix="ind",habillage = "Terroir")
-
-###Example with groups of categorical variables
-data (poison)
-MFA(poison, group=c(2,2,5,6), type=c("s","n","n","n"),
-    name.group=c("desc","desc2","symptom","eat"),
-    num.group.sup=1:2)
-
-## End(Not run)
