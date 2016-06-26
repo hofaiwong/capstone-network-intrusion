@@ -1,6 +1,11 @@
+#################################################
+####       Network Intrusion Detection       ####
+####             Naive Bayes                 ####
+#################################################
+
 library(e1071)
-library(caret)
-library(klaR)
+# library(caret)
+# library(klaR)
 
 #---------------------- Define functions ---------------------------#
 #Define performance function
@@ -32,26 +37,23 @@ factor.bin = function(df) {
   return(df)
 }
 
+
+#---------------------- Load data for unshuffled ---------------------------#
+colnames(KDD.train)[42:43]=c('outcome','outcome.response')
+KDD.train[43] <- ifelse(KDD.train$outcome == 'normal',0,1)
+bayes_train = factor.bin(KDD.train[, -c(20,42)])
+
+colnames(KDD.test)[42]=c('outcome','outcome.response')
+KDD.test[43] <- ifelse(KDD.test$outcome == 'normal',0,1)
+bayes_test = factor.bin(KDD.test[, -c(20,42)])
+
+
 #---------------------- Load data for shuffled ---------------------------#
 colnames(KDD.shuffle)[42:43]=c('outcome','outcome.response')
 KDD.shuffle[43] <- ifelse(KDD.shuffle$outcome == 'normal',0,1)
-bayes_train = KDD.shuffle[shuffle.train, -c(20,42)]
-bayes_test = KDD.shuffle[-shuffle.train, -c(20,42)]
+bayes_train = factor.bin(KDD.shuffle[shuffle.train, -c(20,42)])
+bayes_test = factor.bin(KDD.shuffle[-shuffle.train, -c(20,42)])
 
-#---------------------- Load data for unshuffled ---------------------------#
-colnames(KDD.train)[42]='outcome'
-colnames(KDD.train)[43]='outcome.response'
-KDD.train[43] <- ifelse(KDD.train$outcome == 'normal',0,1)
-
-colnames(KDD.test)[42]='outcome'
-colnames(KDD.test)[43]='outcome.response'
-KDD.test[43] <- ifelse(KDD.test$outcome == 'normal',0,1)
-
-bayes_train = KDD.train[, -c(20,42)]
-bayes_test = KDD.test[, -c(20,42)]
-
-bayes_train = factor.bin(bayes_train)
-bayes_test = factor.bin(bayes_test)
 
 #---------------------- Split test and train into predictor and labels ---------------------------#
 # bayes_train_labels = as.factor(bayes_train[,41])
@@ -73,14 +75,43 @@ tune.control = tune.control(sampling="cross",
 obj = tune(naiveBayes, 
            outcome.response~.,
            data = bayes_train,
-           ranges = list(laplace = 0:2),
+           ranges = list(laplace = 0:5),
            tunecontrol = tune.control)
-#Shuffled, 10-CV: laplace = 1; class error: 0.120899 
-#Unshuffled, 10-CV: laplace = 1; class error: 0.1071897 
+#Unshuffled, 10-CV: laplace = 1; class error: 0.1071023 
+#Shuffled, 10-CV: laplace = 1; class error: 0.120629 
 
 best.nb = obj$best.model
+bayes_train_pred = predict(best.nb, bayes_train[,1:40])
+performance(bayes_train_pred, bayes_train[,41])
+# Unshuffled
+# Accuracy:  0.8934851 
+# True positive:  0.8964694 
+# False negative:  0.109113 
+# prediction
+# truth     0     1
+# 0 59995  6070
+# 1  7348 52560
+
+# Shuffled
+# Accuracy:  0.8796409 
+# True positive:  0.8685275 
+# False negative:  0.1100627 
+# prediction
+# truth     0     1
+# 0 58193  7965
+# 1  7197 52618
+
 bayes_test_pred = predict(best.nb, bayes_test[,1:40])
 performance(bayes_test_pred, bayes_test[,41])
+# Unshuffled
+# Accuracy:  0.7779799 
+# True positive:  0.6702252 
+# False negative:  0.07960865 
+# prediction
+# truth    0    1
+# 0 8937 4232
+# 1  773 8601
+
 # Shuffled
 # Accuracy:  0.8741516 
 # True positive:  0.8755515 
@@ -90,14 +121,6 @@ performance(bayes_test_pred, bayes_test[,41])
 # 0 10180  1354
 # 1  1483  9526
 
-# Unshuffled
-# Accuracy:  0.7779799 
-# True positive:  0.6702252 
-# False negative:  0.07960865 
-# prediction
-# truth    0    1
-# 0 8937 4232
-# 1  773 8601
 
 #---------------------- Naive Bayes using e1071 without CV---------------------------#
 # #Train model

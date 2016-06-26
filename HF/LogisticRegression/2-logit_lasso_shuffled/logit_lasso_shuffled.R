@@ -75,7 +75,7 @@ x.test = model.matrix(outcome.response ~ ., new.KDD.test.scaled)[, -1]
 y.test = new.KDD.test.scaled$outcome.response
 
 #Creating training and test sets within Train dataset
-set.seed(0)
+set.seed(5)
 train = sample(1:nrow(x.train), 7*nrow(x.train)/10)
 
 #Fitting the logistic regression on a grid of lambda (for plot only). Alpha = 1 for lasso penalty
@@ -91,7 +91,7 @@ plot(logit.models,
 
 
 #Cross-validation
-set.seed(0)
+set.seed(5)
 logit.cv = cv.glmnet(x.train[train, ], y.train[train], 
                      alpha = 1,            #Lasso penalty
                      nfolds = 10,          #k-fold CV
