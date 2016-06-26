@@ -7,6 +7,7 @@ library(glmnet)
 library(car)
 library(MASS)
 library(ggplot2)
+library(boot)
 
 ###################
 #### Functions ####
@@ -48,7 +49,6 @@ for (i in 1:(dim(new.KDD.train)[2]-1)) {
   bin.col[i,3]=max(new.KDD.train[,i])
   bin.col[i,4]=min(new.KDD.train[,i])
 }
-#bin.col[bin.col$unique==2,]
 bin.col = bin.col[bin.col$unique==2,1]
 
 #Scaling non-binary columns in train
@@ -74,11 +74,11 @@ y.train = new.KDD.train.scaled$outcome.response
 x.test = model.matrix(outcome.response ~ ., new.KDD.test.scaled)[, -1]
 y.test = new.KDD.test.scaled$outcome.response
 
-#Creating training and test sets
+#Creating training and test sets within Train dataset
 set.seed(0)
 train = sample(1:nrow(x.train), 7*nrow(x.train)/10)
 
-#Fitting the logistic regression on a grid of lambda. Alpha = 1 for lasso penalty
+#Fitting the logistic regression on a grid of lambda (for plot only). Alpha = 1 for lasso penalty
 grid = 10^seq(0, -5, length = 200)
 logit.models = glmnet(x.train[train, ], y.train[train],
                       alpha = 1,
@@ -102,63 +102,61 @@ plot(logit.cv, main = "Logistic Regression with Lasso penalty\n")
 
 
 #Best lambda
-logit.cv$lambda.min #1.122668e-05 with k=5; 1.189534e-05 with k=10; 9.011018e-05 with k=10 and shuffled data
-log(logit.cv$lambda.min) #-11.39722 with k=5; -11.33936 with k=10; -9.314477 with k=10 and shuffled data
-lambda = exp(-6) #logit.cv$lambda.min #lamdba.min still keeps ~100 features. Need to balance complexity and accuracy
+logit.cv$lambda.min #1.189534e-05
+log(logit.cv$lambda.min) #-11.33936
+lambda = exp(-3) #lamdba.min still keeps 110 features. Need to balance complexity and accuracy
 
 
 #Checking performance of model - train data, test subset
 logit.test.class = predict(logit.cv, 
                            s = lambda, 
                            type = 'class',
-                           newx = x.train[-train, ])
+                           newx = x.train[-train, ]) #As per function documentation
 performance(y.train[-train], logit.test.class) 
-#94.5% accuracy with lambda=exp(-3); 97.6% with lambda.min
-#lambda=exp(-3): 94.5% (seed=0), k=5
-#lambda.min: 97.6% (seed=0), k=5
-#lambda=exp(-3): 0.9451471 (seed=100), k=5
-#lambda=exp(-3): 0.9445914 (seed=30), k=5
-#lambda=exp(-3): 0.9447767 (seed=0), k=10
-#Shuffled, exp(-4), k=10: 0.9402784 
+# Accuracy:  0.9447767 
+# True positive:  0.9556589 
+# False negative:  0.0641038 
+# prediction
+# truth     0     1
+# 0 19476   753
+# 1  1334 16229
 
 #Checking performance of model - test data
 logit.test.class.final = predict(logit.cv, 
                                  s = lambda, 
                                  type = 'class',
-                                 newx = x.test)
+                                 newx = x.test) #As per function documentation
 performance(y.test, logit.test.class.final) 
-#69.8% accuracy with lambda=exp(-3)
-#lambda=exp(-3): 69.8% (seed=0), k=5
-#lambda.min: 
-#lambda=exp(-3): 0.6972896% (seed=100), k=5
-#lambda=exp(-3): 0.6970235 (seed=30), k=5
-#lambda=exp(-3): 0.6978219 (seed=0), k=10
-#Shuffled, exp(-4), k=10: 0.868651 
+# Accuracy:  0.6978219 
+# True positive:  0.9712005 
+# False negative:  0.4103009 
+# prediction
+# truth    0    1
+# 0 9526  184
+# 1 6628 6205
 
-
-
+# #Save predicted probabilities for Joseph
 # saveRDS(predict(logit.cv, s=lambda, newx = x.train, type='response'), file='logit.pred.train.proba.unshuffled.rds')
 # saveRDS(predict(logit.cv, s=lambda, newx = x.test, type='response'), file='logit.pred.test.proba.unshuffled.rds')
-
-
-
 
 #Coefficients: 
 logit.coef = predict(logit.cv, 
                      s = lambda, 
                      type = 'coefficients')
-sum(logit.coef!=0)-1 #Keep ~110 features with lambda.min, 19 with lambda=exp(-3)
-logit.coef
+sum(logit.coef!=0)-1 #Keep 110 features with lambda.min, 12 with lambda=exp(-3)
 logit.nonzero = predict(logit.cv, 
                         s = lambda, 
                         type = 'nonzero')
-colnames(x.train)[logit.nonzero[,1]]
+logit.coef.df = data.frame(var = colnames(x.train)[logit.nonzero[,1]],
+                           coef = logit.coef[logit.nonzero[,1]+1])
+logit.coef.df[order(logit.coef.df$coef, decreasing = T),]
+# write.csv(logit.coef.df, file='logit.coef.df.csv')
 
 #############################
 #### Performance Summary ####
 #############################
 
-#Plot lambda vs coefficients vs accuracy
+#Define function to prep data for accuracy vs count of features
 summary.plot = function(x,y) {
   res = data.frame(matrix(ncol = 3, nrow = length(grid)))
   colnames(res) = c('lambda','accuracy','coef')
@@ -175,14 +173,12 @@ summary.plot = function(x,y) {
     pred.coef = predict(logit.cv, s = grid[i], type = 'coefficients')
     res[i,3] = sum(pred.coef!=0)-1
   }
-  # plot(res$coef, res$accuracy, main = "Model accuracy by number of features",
-  #      xlab="Count of features", ylab="Accuracy", pch=16)
   return(res)
 }
 plot.train = summary.plot(x.train[-train,], y.train[-train])
 plot.test = summary.plot(x.test, y.test)
 
-#Draw plot
+#Draw summary plot
 ggplot(plot.train,aes(coef, accuracy)) + 
   geom_point(aes(colour='red')) +
   geom_point(data=plot.test, aes(x=coef, y=accuracy, colour='blue')) +
@@ -191,27 +187,32 @@ ggplot(plot.train,aes(coef, accuracy)) +
        y="Accuracy",
        colour="Data") +
   scale_colour_discrete(labels = c("Test", "Train")) +
-  geom_vline(xintercept = 110)
+  geom_vline(xintercept = (sum(logit.coef!=0)-1)) +
+  theme_bw()
 
 
 #####################
 #### Diagnostics ####
 #####################
 
-#formula = as.formula(paste("outcome.response ~", paste(colnames(x)[logit.nonzero[,1]], collapse = " + ")))
+#Regenerate logistic model using GLM (no regularization), with columns identified previously
 model.var = colnames(x.train)[logit.nonzero[,1]]
+model.var = model.var[-c(6)] #"wrong_fragment" is not significant
 formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
 logit.glm = glm(formula, 
                 family = "binomial", 
                 data = new.KDD.train.scaled)
-summary(logit.glm) #"wrong_fragment" and "dst_host_serror_rate" are not significant
+summary(logit.glm) #All coefficients are significant
 
-model.var = model.var[-c(11,18)] #remove the 2 insignificant features
-formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
-logit.glm = glm(formula, 
-                family = "binomial", 
-                data = new.KDD.train.scaled)
-summary(logit.glm) #all coefficients are significant
+#CV error:
+logit.glm.cv = cv.glm(new.KDD.train.scaled, logit.glm, K = 5)
+1-logit.glm.cv$delta[2]
+
+#Checking performance of prediction
+logit.pred.train = round(logit.glm$fitted.values)
+performance(new.KDD.train.scaled$outcome.response, logit.pred.train) #0.9662785 accuracy
+logit.pred.test = round(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'))
+performance(new.KDD.test.scaled$outcome.response, logit.pred.test) #0.683405 accuracy
 
 #Goodness of fit test i.e. Test of deviance
 pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate
@@ -223,16 +224,11 @@ pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value o
 vif(logit.glm) 
 vif(logit.glm)[vif(logit.glm)>5] #Null, no multicollinearity
 
-#Checking performance of prediction
-logit.pred.train = round(logit.glm$fitted.values)
-performance(new.KDD.train.scaled$outcome.response, logit.pred.train)
-logit.pred.test = round(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'))
-performance(new.KDD.test.scaled$outcome.response, logit.pred.test)
+# write.csv(as.data.frame(logit.glm$coefficients), file='logit.glm.coef.csv')
+# saveRDS(predict(logit.glm, newdata=new.KDD.train.scaled, type='response'), file='logit.pred.train.proba.unshuffled.rds')
+# saveRDS(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'), file='logit.pred.test.proba.unshuffled.rds')
 
-saveRDS(predict(logit.glm, newdata=new.KDD.train.scaled, type='response'), file='logit.pred.train.proba.unshuffled.rds')
-saveRDS(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'), file='logit.pred.test.proba.unshuffled.rds')
-
-#Checking the model summary and assumptions
+#Checking other model summary and assumptions
 plot(logit.glm)
 influencePlot(logit.glm)
 avPlots(logit.glm)
