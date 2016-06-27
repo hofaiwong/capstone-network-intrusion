@@ -29,8 +29,8 @@ Standard<-function(data,ave,sd) {
 performance = function(target, pred) {
   contingency = table(truth = target, prediction = pred)
   cat('Accuracy: ',sum(diag(contingency))/sum(contingency),'\n')
-  cat('True positive: ',contingency[2,2]/sum(contingency[,2]),'\n')
-  cat('False negative: ',contingency[2,1]/sum(contingency[,1]),'\n')
+  cat('True positive rate: ',contingency[2,2]/sum(contingency[2,]),'\n')
+  cat('False positive rate: ',contingency[1,2]/sum(contingency[1,]),'\n')
   return(contingency)
 }
 
@@ -114,8 +114,8 @@ logit.test.class = predict(logit.cv,
                            newx = x.train[-train, ]) #As per function documentation
 performance(y.train[-train], logit.test.class) 
 # Accuracy:  0.9172047 
-# True positive:  0.9403591 
-# False negative:  0.1016965 
+# True positive rate:  0.8830164 
+# False positive rate:  0.05141088 
 # prediction
 # truth     0     1
 # 0 18691  1013
@@ -128,8 +128,8 @@ logit.test.class.final = predict(logit.cv,
                                  newx = x.test) #As per function documentation
 performance(y.test, logit.test.class.final) 
 # Accuracy:  0.856319 
-# True positive:  0.9655172 
-# False negative:  0.2061942 
+# True positive rate:  0.7283088 
+# False positive rate:  0.02426477 
 # prediction
 # truth     0     1
 # 0 11380   283
@@ -202,26 +202,33 @@ model.var = model.var[-c(7)] #"logged_in" is not significant
 formula = as.formula(paste("outcome.response ~", paste(model.var, collapse = " + ")))
 logit.glm = glm(formula, 
                 family = "binomial", 
-                data = new.KDD.train.scaled)
+                data = new.KDD.train.scaled[train,])
 summary(logit.glm) #All coefficients are now significant
 
 #CV error:
-logit.glm.cv = cv.glm(new.KDD.train.scaled, logit.glm, K = 5)
-1-logit.glm.cv$delta[2]
-#All var: 0.9454816 CV error
-#Minus logged_in: 0.9454882 -> SELECT
-#Minus logged_in and same_srv_rate: 0.9449763
-#Minus logged_in and dst_host_srv_count: 0.9451748
-#Minus logged_in, same_srv_rate and dst_host_srv_count: 0.9441803
+logit.glm.cv = cv.glm(new.KDD.train.scaled[train,], logit.glm, K = 5)
+1-logit.glm.cv$delta[2] #0.9453371
 
 #Checking performance of prediction:
-logit.pred.train = round(logit.glm$fitted.values)
-performance(new.KDD.train.scaled$outcome.response, logit.pred.train)
+logit.pred.train = round(predict(logit.glm, newdata=new.KDD.train.scaled[-train,], type='response'))
+performance(new.KDD.train.scaled[-train,122], logit.pred.train)
+# Accuracy:  0.9329752 
+# True positive rate:  0.9034166 
+# False positive rate:  0.03989038 
+# prediction
+# truth     0     1
+# 0 18918   786
+# 1  1747 16341
+
 logit.pred.test = round(predict(logit.glm, newdata=new.KDD.test.scaled, type='response'))
 performance(new.KDD.test.scaled$outcome.response, logit.pred.test)
-#Minus logged_in: 0.8765914 test, 0.9313662 train
-#Minus logged_in and same_srv_rate: 0.8772568 test, 0.9318664 train
-#Minus logged_in and dst_host_srv_count: 0.765293 test, 0.9322633 train
+# Accuracy:  0.8763696 
+# True positive rate:  0.7806066 
+# False positive rate:  0.03429649 
+# prediction
+# truth     0     1
+# 0 11263   400
+# 1  2387  8493
 
 #Goodness of fit test i.e. Test of deviance
 pchisq(logit.glm$deviance, logit.glm$df.residual, lower.tail = FALSE) #p-value of 1 > 0.05 cutoff so we fail to reject null hypothesis; model is appropriate

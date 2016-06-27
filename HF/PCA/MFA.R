@@ -41,8 +41,8 @@ KDD.test2 = prep.pca(KDD.test)
 #------------- FactoMineR PCA for Train ----------------------------#
 #PCA
 pca.train = PCA(KDD.train2, scale.unit = TRUE, ncp = 5, ind.sup = NULL, 
-                quanti.sup = c(43), 
-                quali.sup = c(char.col, bin.col), #Binary are considered supplementary
+                quanti.sup = NULL, 
+                quali.sup = c(char.col, bin.col, 43), #Binary are considered supplementary
                 #quali.sup = c(char.col), #Binary are considered active
                 graph = TRUE, axes = c(1,2))
 summary(pca.train)

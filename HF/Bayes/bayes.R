@@ -12,8 +12,8 @@ library(e1071)
 performance = function(target, pred) {
   contingency = table(truth = target, prediction = pred)
   cat('Accuracy: ',sum(diag(contingency))/sum(contingency),'\n')
-  cat('True positive: ',contingency[2,2]/sum(contingency[,2]),'\n')
-  cat('False negative: ',contingency[2,1]/sum(contingency[,1]),'\n')
+  cat('True positive rate: ',contingency[2,2]/sum(contingency[2,]),'\n')
+  cat('False positive rate: ',contingency[1,2]/sum(contingency[1,]),'\n')
   return(contingency)
 }
 
@@ -75,47 +75,56 @@ tune.control = tune.control(sampling="cross",
 obj = tune(naiveBayes, 
            outcome.response~.,
            data = bayes_train,
-           ranges = list(laplace = 0:5),
+           ranges = list(laplace = 0:1),
            tunecontrol = tune.control)
+# obj.unshuffled = obj
 #Unshuffled, 10-CV: laplace = 1; class error: 0.1071023 
-#Shuffled, 10-CV: laplace = 1; class error: 0.120629 
+# obj.shuffled = obj
+#Shuffled, 10-CV: laplace = 1; class error: 0.1204306 
 
-best.nb = obj$best.model
-bayes_train_pred = predict(best.nb, bayes_train[,1:40])
-performance(bayes_train_pred, bayes_train[,41])
-# Unshuffled
+#---------------------- Performance on unshuffled ---------------------------#
+# Unshuffled Train
+best.nb.unshuffled = obj.unshuffled$best.model
+bayes_train_pred_unshuffled = predict(best.nb.unshuffled, bayes_train[,1:40])
+performance(bayes_train_pred_unshuffled, bayes_train[,41])
 # Accuracy:  0.8934851 
-# True positive:  0.8964694 
-# False negative:  0.109113 
+# True positive rate:  0.8773453 
+# False positive rate:  0.09187921 
 # prediction
 # truth     0     1
 # 0 59995  6070
 # 1  7348 52560
 
-# Shuffled
-# Accuracy:  0.8796409 
-# True positive:  0.8685275 
-# False negative:  0.1100627 
-# prediction
-# truth     0     1
-# 0 58193  7965
-# 1  7197 52618
-
-bayes_test_pred = predict(best.nb, bayes_test[,1:40])
-performance(bayes_test_pred, bayes_test[,41])
-# Unshuffled
+# Unshuffled Test
+bayes_test_pred_unshuffled = predict(best.nb.unshuffled, bayes_test[,1:40])
+performance(bayes_test_pred_unshuffled, bayes_test[,41])
 # Accuracy:  0.7779799 
-# True positive:  0.6702252 
-# False negative:  0.07960865 
+# True positive rate:  0.9175379 
+# False positive rate:  0.3213608 
 # prediction
 # truth    0    1
 # 0 8937 4232
 # 1  773 8601
 
-# Shuffled
+#---------------------- Performance on shuffled ---------------------------#
+# Shuffled Train
+best.nb.shuffled = obj.shuffled$best.model
+bayes_train_pred_shuffled = predict(best.nb.shuffled, bayes_train[,1:40])
+performance(bayes_train_pred_shuffled, bayes_train[,41])
+# Accuracy:  0.8796409 
+# True positive rate:  0.879679 
+# False positive rate:  0.1203936 
+# prediction
+# truth     0     1
+# 0 58193  7965
+# 1  7197 52618
+
+# Shuffled Test
+bayes_test_pred_shuffled = predict(best.nb.shuffled, bayes_test[,1:40])
+performance(bayes_test_pred_shuffled, bayes_test[,41])
 # Accuracy:  0.8741516 
-# True positive:  0.8755515 
-# False negative:  0.1271542 
+# True positive rate:  0.865292 
+# False positive rate:  0.1173921 
 # prediction
 # truth     0     1
 # 0 10180  1354
