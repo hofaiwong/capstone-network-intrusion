@@ -1,6 +1,8 @@
 KDD.train2 = as.data.frame(scale(KDD.train[,c(1,5:41)]))
-#KDD.train2 = as.data.frame(cbind(KDD.train2, KDD.train[,2:4]))
+KDD.train2 = KDD.train2[,-c(17)]
 
+
+#-------------K-Means using default stats package ------------------------#
 #Index of binary columns
 bin.col = data.frame(matrix(ncol = 4, nrow = dim(KDD.train2)[2]))
 colnames(bin.col) = c('col','unique','max','min')
@@ -13,7 +15,6 @@ for (i in 1:(dim(KDD.train2)[2])) {
 bin.col = bin.col[bin.col$unique==2,1]
 
 KDD.train2 = KDD.train2[,-c(17, bin.col)]
-
 
 wssplot = function(data, nc = 15, seed = 0) {
   wss = (nrow(data) - 1) * sum(apply(data, 2, var))
@@ -61,4 +62,3 @@ ggplot(KDD.train3, aes(outcome2)) +
        x="Connection/Attack type",
        y="Connections") +
   theme_bw()
-
